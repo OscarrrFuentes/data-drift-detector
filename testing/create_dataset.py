@@ -31,9 +31,14 @@ def parse_args():
         default="x,y",
         help="Header for the dataset file (default: 'x,y')",
     )
+    parser.add_argument(
+        "--dont_ignore",
+        action="store_true",
+        help="If set, do not include in .gitignore (default: False)\n",
+    )
     return parser.parse_args()
 
-def create_sample(n, random, name, header):
+def create_sample(n, random, name, header, dont_ignore):
     """
     Create a sample dataset with n data points and save to a file.
 
@@ -79,9 +84,19 @@ def create_sample(n, random, name, header):
     data = rng.standard_normal(size=(n, 2))
 
     np.savetxt(name, data, delimiter=",", header=header)
+
+    if dont_ignore:
+        return 0
+
+    # Add the created dataset to .gitignore if not already present
+    with open(".gitignore", "r", encoding="utf-8") as f:
+        if name in f.read().splitlines():
+            return 0
+    with open(".gitignore", "a", encoding="utf-8") as f:
+        f.write("\n"+name)
     return 0
 
 if __name__ == "__main__":
     args = parse_args()
     print("n:", args.n, "\nrandom:", args.random, "\nname:", args.name, "\nheader:", args.header)
-    create_sample(args.n, args.random, args.name, args.header)
+    create_sample(args.n, args.random, args.name, args.header, args.dont_ignore)
