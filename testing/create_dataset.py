@@ -15,11 +15,9 @@ def parse_args():
         help="Number of data points to generate (default: 1000)",
     )
     parser.add_argument(
-        "--seed",
-        type=int,
-        default=0,
-        help="Random seed for reproducibility (default: 0)\n" \
-            "If seed set to -1, then it is random",
+        "--random",
+        action = "store_true",
+        help="If set, generate a random dataset (default: False)\n",
     )
     parser.add_argument(
         "--name",
@@ -35,27 +33,34 @@ def parse_args():
     )
     return parser.parse_args()
 
-def create_sample(n, seed, name, header):
+def create_sample(n, random, name, header):
     """
     Create a sample dataset with n data points and save to a file.
 
     int n: Number of data points to generate
-    int seed: Random seed
+    int random: Bool of whether the dataset is random
     str name: Output file name
     str header: Header for the dataset file
     """
+    # Ensure the file has a .txt extension
     if name.split(".")[-1] != "txt":
+        # There is no extension at all
         if len(name.split(".")) == 1:
             print("The file should be a .txt file. Adding .txt extension")
             name += ".txt"
+
+        # There is one extension but it is not .txt    
         elif len(name.split(".")) == 2:
             print("The file should be a .txt file. Changing extension to .txt")
             name = "".join(name.split(".")[:-1]) + ".txt"
+        
+        # There are multiple extensions
         elif len(name.split(".")) > 2:
             print("The file should be a .txt file. Merging and changing extension to "\
                   ".txt")
             name = ".".join(name.split(".")) + ".txt"
 
+    # Ensure the dataset is created in the testing/ folder
     if (len(name)<6) or (name[0:7] != "testing"):
         print("The dataset must be created in the testing/ folder")
         if "/" in name:
@@ -64,15 +69,19 @@ def create_sample(n, seed, name, header):
             name = "testing/" + name
         print("Saving data to:", name)
 
-    if seed != -1:
-        np.random.seed(seed)
+    # Set random seed
+    if random:
+        rng = np.random.default_rng()
+    else:
+        rng = np.random.default_rng(0)
 
-    data = np.random.randn(n, 2)
+    # Generate independent data from a standard normal distribution
+    data = rng.standard_normal(size=(n, 2))
 
     np.savetxt(name, data, delimiter=",", header=header)
     return 0
 
 if __name__ == "__main__":
     args = parse_args()
-    print("n:", args.n, "\nseed:", args.seed, "\nname:", args.name, "\nheader:", args.header)
-    create_sample(args.n, args.seed, args.name, args.header)
+    print("n:", args.n, "\nrandom:", args.random, "\nname:", args.name, "\nheader:", args.header)
+    create_sample(args.n, args.random, args.name, args.header)
