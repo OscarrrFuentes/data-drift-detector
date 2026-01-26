@@ -1,7 +1,13 @@
-import numpy as np
-import argparse
+#!/usr/bin/env python3
+"""
+Create a sample dataset for testing.
+"""
 
-def parse_args():
+import argparse
+import numpy as np
+
+
+def parse_args() -> argparse.Namespace:
     """
     Parse custom dataset arguments
     """
@@ -38,16 +44,14 @@ def parse_args():
     )
     return parser.parse_args()
 
-def create_sample(n, random, name, header, dont_ignore):
-    """
-    Create a sample dataset with n data points and save to a file.
 
-    int n: Number of data points to generate
-    int random: Bool of whether the dataset is random
-    str name: Output file name
-    str header: Header for the dataset file
+def check_extension(name: str) -> str:
     """
-    # Ensure the file has a .txt extension
+    Check if the file name has a .txt extension.
+
+    name (str): File name to check
+    return: Corrected file name with .txt extension
+    """
     if name.split(".")[-1] != "txt":
         # There is no extension at all
         if len(name.split(".")) == 1:
@@ -64,8 +68,16 @@ def create_sample(n, random, name, header, dont_ignore):
             print("The file should be a .txt file. Merging and changing extension to "\
                   ".txt")
             name = ".".join(name.split(".")) + ".txt"
+    return name
 
-    # Ensure the dataset is created in the testing/ folder
+
+def check_folder(name: str) -> str:
+    """
+    Ensure the dataset is created in the testing/ folder.
+
+    name (str): File name to check
+    return: Corrected file name in testing/ folder
+    """
     if (len(name)<6) or (name[0:7] != "testing"):
         print("The dataset must be created in the testing/ folder")
         if "/" in name:
@@ -73,6 +85,42 @@ def create_sample(n, random, name, header, dont_ignore):
         else:
             name = "testing/" + name
         print("Saving data to:", name)
+    return name
+
+
+def add_to_gitignore(name: str) -> None:
+    """
+    Add the created dataset to .gitignore if not already present.
+
+    name (str): File name to add to .gitignore
+    """
+
+    with open(".gitignore", "r", encoding="utf-8") as f:
+        if name in f.read().splitlines():
+            return
+
+    with open(".gitignore", "a", encoding="utf-8") as f:
+        f.write("\n"+name)
+    return
+
+
+def create_sample(n: int,
+                  random: bool,
+                  name: str,
+                  header: str,
+                  dont_ignore: bool,
+                  ) -> int:
+    """
+    Create a sample dataset with n data points and save to a file.
+
+    int n: Number of data points to generate
+    int random: Bool of whether the dataset is random
+    str name: Output file name
+    str header: Header for the dataset file
+    """
+    # Check file name
+    name = check_extension(name)
+    name = check_folder(name)
 
     # Set random seed
     if random:
@@ -89,11 +137,7 @@ def create_sample(n, random, name, header, dont_ignore):
         return 0
 
     # Add the created dataset to .gitignore if not already present
-    with open(".gitignore", "r", encoding="utf-8") as f:
-        if name in f.read().splitlines():
-            return 0
-    with open(".gitignore", "a", encoding="utf-8") as f:
-        f.write("\n"+name)
+    add_to_gitignore(name)
     return 0
 
 if __name__ == "__main__":
