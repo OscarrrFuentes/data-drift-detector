@@ -4,6 +4,7 @@ Create a sample dataset for testing.
 """
 
 import argparse
+import textwrap
 import numpy as np
 
 
@@ -20,7 +21,7 @@ def parse_args() -> argparse.Namespace:
     Parse custom dataset arguments
     """
     parser = argparse.ArgumentParser(
-        description="Create a sample dataset for testing."
+        description="Create a sample dataset for testing.",
     )
     parser.add_argument(
         "--n",
@@ -59,7 +60,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--print_distributions",
         action="store_true",
-        help="Flag to print all acceptable distributions"
+        help="Flag to print all acceptable distributions",
+    )
+    parser.add_argument(
+        "--drift_data",
+        type=dict,
+        default=None,
+        help=("Dictionary containing instructions to drift the mock dataset\n"\
+              "Pass --drift_data_dict_keys to see full description of allowed values"
+),
+    )
+    parser.add_argument(
+        "--drift_data_dict_keys",
+        action="store_true",
+        help="Flag to print all of the currently accepted changes to the mock dataset"
     )
     return parser.parse_args()
 
@@ -68,7 +82,7 @@ def check_extension(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     """
     Check if the file name has a .txt extension.
 
-    name (str): File name to check
+    str name: File name to check
     return: Corrected file name with .txt extension
     """
     if name.split(".")[-1] != "txt":
@@ -96,7 +110,7 @@ def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     """
     Ensure the dataset is created in the testing/ folder.
 
-    name (str): File name to check
+    str name: File name to check
     return: Corrected file name in testing/ folder
     """
     if (len(name)<=6) or (name[0:7] != "testing"):
@@ -117,9 +131,9 @@ def create_dataset(rng: np.random.Generator,
     """
     Create a 2D dataset with n data points sampled from distribution.
 
-    rng (np.random.Generator): Random number generator
-    n (int): Number of data points to generate
-    distribution (str | None): Distribution to sample from
+    np.random.Generator rng: Random number generator
+    int n: Number of data points to generate
+    str | None distribution: Distribution to sample from
     return: Generated dataset
     """
 
@@ -149,7 +163,7 @@ def add_to_gitignore(name: str) -> None:
     """
     Add the created dataset to .gitignore if not already present.
 
-    name (str): File name to add to .gitignore
+    str name: File name to add to .gitignore
     """
 
     with open(".gitignore", "r", encoding="utf-8") as f:
@@ -200,22 +214,55 @@ def create_sample(n: int,
     add_to_gitignore(name)
     return 0
 
-if __name__ == "__main__":
-    args = parse_args()
+
+def print_info(args: argparse.Namespace) -> None:
+    """
+    Print dataset information
+    
+    argparse.Namespace args: Arguments passed to this program
+    """
     if args.print_distributions:
-        print("ALLOWED DISTRIBUTIONS:\n")
+        print("\nALLOWED DISTRIBUTIONS:\n")
         for d in ALLOWED_DISTRIBUTIONS:
             print(d)
         print("\n-----------------------\n")
 
-    print("INPUTS:\n",
+    if args.drift_data_dict_keys:
+        print("\n", textwrap.fill("ALLOWED drift_data DICT KEY:VALUE PAIRS"), "\n\n",
+              textwrap.fill("\"loc\": tuple[float, float] | list[tuple[float, float]] - "
+                            "(x, y) locations for the drift to happen.",
+                            width=80,
+                            subsequent_indent="   ",), "\n",
+              textwrap.fill("\"stdev\": "
+                            "tuple[float, float] | list[tuple[float, float]] - "
+                            "Changes to (x, y) standard deviations at each loc. If "
+                            "list[tuple[float, float]], "
+                            "it must be the same length as Loc.",
+                            width=80,
+                            subsequent_indent="   ",), "\n",
+              textwrap.fill("\"covariance_matrix\": "
+                            "tuple[tuple[float, float], tuple[float, float]] - "
+                            "MULTIVARIATE NORMAL DISTRIBUTION ONLY. "
+                            "Change the covariance matrix of the multivariate normal.",
+                            width=80,
+                            subsequent_indent="   ",
+                            ),
+              "\n\n----------------------\n",
+              )
+
+    print("\nINPUTS:\n",
           "\nn:", args.n,
           "\nrandom:", args.random,
           "\nname:", args.name,
           "\nheader:", args.header,
           "\ndistribution:", (args.distribution if args.distribution else "normal"),
-          "\n\n----------------------\n")
-    
+          "\n\n----------------------\n",
+          )
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    print_info(args)
     create_sample(args.n,
                   args.random,
                   args.name,
