@@ -7,6 +7,14 @@ import argparse
 import numpy as np
 
 
+ALLOWED_DISTRIBUTIONS = ["normal",
+                         "uniform",
+                         "exponential",
+                         "multivariate_normal",
+                         "poisson",
+                         ]
+
+
 def parse_args() -> argparse.Namespace:
     """
     Parse custom dataset arguments
@@ -42,10 +50,21 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="If set, do not include in .gitignore (default: False)\n",
     )
+    parser.add_argument(
+        "--distribution",
+        type=str,
+        default=None,
+        help="Distribution to sample from (default: None, standard normal)",
+    )
+    parser.add_argument(
+        "--print_distributions",
+        action="store_true",
+        help="Flag to print all acceptable distributions"
+    )
     return parser.parse_args()
 
 
-def check_extension(name: str) -> str:
+def check_extension(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     """
     Check if the file name has a .txt extension.
 
@@ -53,6 +72,8 @@ def check_extension(name: str) -> str:
     return: Corrected file name with .txt extension
     """
     if name.split(".")[-1] != "txt":
+        edit_flag = True
+
         # There is no extension at all
         if len(name.split(".")) == 1:
             print("The file should be a .txt file. Adding .txt extension")
@@ -68,24 +89,60 @@ def check_extension(name: str) -> str:
             print("The file should be a .txt file. Merging and changing extension to "\
                   ".txt")
             name = ".".join(name.split(".")) + ".txt"
-    return name
+    return (name, edit_flag)
 
 
-def check_folder(name: str) -> str:
+def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     """
     Ensure the dataset is created in the testing/ folder.
 
     name (str): File name to check
     return: Corrected file name in testing/ folder
     """
-    if (len(name)<6) or (name[0:7] != "testing"):
-        print("The dataset must be created in the testing/ folder")
+    if (len(name)<=6) or (name[0:7] != "testing"):
+        edit_flag = True
+        print("The dataset must be created in the testing/ folder,"\
+              " changing folder to testing/")
         if "/" in name:
             name = "testing/" + name.split("/")[-1]
         else:
             name = "testing/" + name
-        print("Saving data to:", name)
-    return name
+    return (name, edit_flag)
+
+
+def create_dataset(rng: np.random.Generator,
+                   n: int,
+                   distribution: str | None = None,
+                   ) -> np.ndarray:
+    """
+    Create a 2D dataset with n data points sampled from distribution.
+
+    rng (np.random.Generator): Random number generator
+    n (int): Number of data points to generate
+    distribution (str | None): Distribution to sample from
+    return: Generated dataset
+    """
+
+    # Generate 2D data based on specified distribution
+    match distribution:
+        case "uniform":
+            data = rng.uniform(low=0.0, high=1.0, size=(n, 2))
+        case "exponential":
+            data = rng.exponential(scale=1.0, size=(n, 2))
+        case "multivariate_normal":
+            mean = [0, 0]
+            cov = [[1, 0.9], [0.9, 1]]
+            data = rng.multivariate_normal(mean, cov, size=n)
+        case "poisson":
+            data = rng.poisson(lam=10.0, size=(n, 2))
+        case "normal" | None:
+            data = rng.standard_normal(size=(n, 2))
+        case _:
+            print(f"Distribution \"{distribution}\" not allowed.\n"
+              "Generating standard normal data instead.")
+            data = rng.standard_normal(size=(n, 2))
+
+    return data
 
 
 def add_to_gitignore(name: str) -> None:
@@ -109,6 +166,7 @@ def create_sample(n: int,
                   name: str,
                   header: str,
                   dont_ignore: bool,
+                  distribution: str | None = None,
                   ) -> int:
     """
     Create a sample dataset with n data points and save to a file.
@@ -119,8 +177,10 @@ def create_sample(n: int,
     str header: Header for the dataset file
     """
     # Check file name
-    name = check_extension(name)
-    name = check_folder(name)
+    (name, edit_flag) = check_extension(name)
+    (name, edit_flag) = check_folder(name, edit_flag=edit_flag)
+    if edit_flag:
+        print(f"Saving file to {name}")
 
     # Set random seed
     if random:
@@ -128,8 +188,8 @@ def create_sample(n: int,
     else:
         rng = np.random.default_rng(0)
 
-    # Generate independent data from a standard normal distribution
-    data = rng.standard_normal(size=(n, 2))
+    # Generate data from distribution
+    data = create_dataset(rng, n, distribution)
 
     np.savetxt(name, data, delimiter=",", header=header)
 
@@ -142,5 +202,23 @@ def create_sample(n: int,
 
 if __name__ == "__main__":
     args = parse_args()
-    print("n:", args.n, "\nrandom:", args.random, "\nname:", args.name, "\nheader:", args.header)
-    create_sample(args.n, args.random, args.name, args.header, args.dont_ignore)
+    if args.print_distributions:
+        print("ALLOWED DISTRIBUTIONS:\n")
+        for d in ALLOWED_DISTRIBUTIONS:
+            print(d)
+        print("\n-----------------------\n")
+
+    print("INPUTS:\n",
+          "\nn:", args.n,
+          "\nrandom:", args.random,
+          "\nname:", args.name,
+          "\nheader:", args.header,
+          "\ndistribution:", (args.distribution if args.distribution else "normal"),
+          "\n\n----------------------\n")
+    
+    create_sample(args.n,
+                  args.random,
+                  args.name,
+                  args.header,
+                  args.dont_ignore,
+                  args.distribution)
