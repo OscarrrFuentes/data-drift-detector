@@ -5,6 +5,7 @@ Create a sample dataset for testing.
 
 import argparse
 import textwrap
+import json
 import numpy as np
 
 
@@ -14,6 +15,27 @@ ALLOWED_DISTRIBUTIONS = ["normal",
                          "multivariate_normal",
                          "poisson",
                          ]
+
+
+def load_json(json_file: str) -> dict:
+    """
+    Load a JSON file or a JSON string and return its contents as a dictionary.
+
+    str json_file: Path to the JSON file or JSON string
+    return: Dictionary containing the JSON data
+    """
+    try:
+        with open(json_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except FileNotFoundError:
+        try:
+            data = json.loads(json_file)
+            return data
+        except Exception as e:
+            raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "\
+                                    "input is not valid JSON string."
+                                    ) from e
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,11 +86,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--drift_data",
-        type=dict,
+        type=load_json,
         default=None,
-        help=("Dictionary containing instructions to drift the mock dataset\n"\
+        help=("JSON-encoded dictionary containing instructions to drift the mock dataset\n"\
               "Pass --drift_data_dict_keys to see full description of allowed values"
-),
+        ),
     )
     parser.add_argument(
         "--drift_data_dict_keys",
@@ -124,9 +146,31 @@ def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     return (name, edit_flag)
 
 
+def get_num_drifts(drift_data: dict) -> int:
+    """
+    Helper Function:
+    Get the number of drifts specified in the drift_data dictionary.
+
+    dict drift_data: Dictionary containing drift data
+    return: Number of drifts
+    """
+    num_drifts = 1
+    tmp = num_drifts
+    for key, value in drift_data.items():
+        if tmp != num_drifts:
+            raise ValueError("All drift_data dict key:values must have the same length of np.shape or be a single value.")
+        tmp = num_drifts
+        if len(shape := np.shape(value)) > 1:
+            num_drifts = shape[0]
+        else:
+            num_drifts = 1
+    return num_drifts
+
+
 def create_dataset(rng: np.random.Generator,
                    n: int,
-                   distribution: str | None = None,
+                   distribution: str | None,
+                   drift_data: dict | None,
                    ) -> np.ndarray:
     """
     Create a 2D dataset with n data points sampled from distribution.
@@ -137,6 +181,8 @@ def create_dataset(rng: np.random.Generator,
     return: Generated dataset
     """
 
+    data_dict = {"loc": [0, 0], "stdev": [1, 1], "cov": [[1, 0.9], [0.9, 1]]}
+
     # Generate 2D data based on specified distribution
     match distribution:
         case "uniform":
@@ -144,9 +190,55 @@ def create_dataset(rng: np.random.Generator,
         case "exponential":
             data = rng.exponential(scale=1.0, size=(n, 2))
         case "multivariate_normal":
-            mean = [0, 0]
-            cov = [[1, 0.9], [0.9, 1]]
-            data = rng.multivariate_normal(mean, cov, size=n)
+            if drift_data:
+                # Determine the number of data drifts
+                if len(shape := np.shape(drift_data[list(drift_data.keys())[0]])) > 1:
+                    num_drifts = shape[0]
+                else:
+                    num_drifts = 1
+                tmp = num_drifts
+
+                # Build data_dict with drift_data values
+                data = np.empty(shape=(0,2))
+                for key in data_dict.keys():
+                    # Check whether all of the keys in data_dict are in drift_data
+                    # otherwise fill with original value repeated num_drifts times
+                    try:
+                        data_dict[key] = drift_data[key]
+                        if len((shape := np.shape(data_dict[key]))) > 1:
+                            num_drifts = shape[0]
+                        else:
+                            num_drifts = 1
+
+                    except KeyError:
+                        data_dict[key] = [data_dict[key] for _ in range(num_drifts)]
+
+                    # Check whether number of drifts is consistent
+                    if tmp != num_drifts:
+                        raise ValueError("All drift_data dict key:values must have "\
+                                        "the same length of np.shape or be a single "\
+                                        f"value.\nFound num_drifts = {tmp}\n{key} "\
+                                        f"num_drifts = {num_drifts}."
+                                        )
+                    tmp = num_drifts
+                    print(data_dict)
+                    
+                # Check whether all of the keys in drift_data are valid
+                for key in drift_data.keys():
+                    if key not in data_dict.keys():
+                        raise KeyError(f"Key \"{key}\" in drift_data is not valid.")
+
+                if tmp != num_drifts:
+                    raise ValueError("All drift_data dict key:values must have the "\
+                                     "same length of np.shape or be a single value."\
+                                     f" Found num_drifts={tmp} and {key} "\
+                                     f"num_drifts={num_drifts}."
+                                     )
+
+                for loc_xy, cov in zip(data_dict["loc"], data_dict["cov"]):
+                    data = np.vstack((data, rng.multivariate_normal(loc_xy, cov, size=int(n/num_drifts))))
+            else:
+                data = rng.multivariate_normal(data_dict["loc"], data_dict["cov"], size=n)
         case "poisson":
             data = rng.poisson(lam=10.0, size=(n, 2))
         case "normal" | None:
@@ -181,6 +273,7 @@ def create_sample(n: int,
                   header: str,
                   dont_ignore: bool,
                   distribution: str | None = None,
+                  drift_data: dict | None = None,
                   ) -> int:
     """
     Create a sample dataset with n data points and save to a file.
@@ -203,7 +296,7 @@ def create_sample(n: int,
         rng = np.random.default_rng(0)
 
     # Generate data from distribution
-    data = create_dataset(rng, n, distribution)
+    data = create_dataset(rng, n, distribution, drift_data)
 
     np.savetxt(name, data, delimiter=",", header=header)
 
@@ -240,8 +333,9 @@ def print_info(args: argparse.Namespace) -> None:
                             "it must be the same length as Loc.",
                             width=80,
                             subsequent_indent="   ",), "\n",
-              textwrap.fill("\"covariance_matrix\": "
-                            "tuple[tuple[float, float], tuple[float, float]] - "
+              textwrap.fill("\"cov\": "
+                            "tuple[tuple[float, float], tuple[float, float]] | "
+                            "list[tuple[tuple[float, float], tuple[float, float]]] - "
                             "MULTIVARIATE NORMAL DISTRIBUTION ONLY. "
                             "Change the covariance matrix of the multivariate normal.",
                             width=80,
@@ -256,6 +350,7 @@ def print_info(args: argparse.Namespace) -> None:
           "\nname:", args.name,
           "\nheader:", args.header,
           "\ndistribution:", (args.distribution if args.distribution else "normal"),
+          "\ndrift data:", args.drift_data,
           "\n\n----------------------\n",
           )
 
@@ -268,4 +363,6 @@ if __name__ == "__main__":
                   args.name,
                   args.header,
                   args.dont_ignore,
-                  args.distribution)
+                  args.distribution,
+                  args.drift_data,
+                  )
