@@ -19,7 +19,6 @@ ALLOWED_DISTRIBUTIONS = ["normal",
                          ]
 
 
-global logger
 logger = lg.getLogger(__name__)
 logger.setLevel(lg.WARNING)
 if not logger.hasHandlers():
@@ -67,9 +66,10 @@ def parse_args() -> argparse.Namespace:
         help="Number of data points to generate (default: 1000)",
     )
     parser.add_argument(
-        "--random",
-        action = "store_true",
-        help="If set, generate a random dataset (default: False)\n",
+        "--seed",
+        type=int,
+        default=None,
+        help=("Random seed set (default: None)"),
     )
     parser.add_argument(
         "--name",
@@ -92,6 +92,7 @@ def parse_args() -> argparse.Namespace:
         "--distribution",
         type=str,
         default=None,
+        choices=ALLOWED_DISTRIBUTIONS,
         help="Distribution to sample from (default: None, standard normal)",
     )
     parser.add_argument(
@@ -200,11 +201,19 @@ def multivariate_drift_data(rng: np.random.Generator,
     """
 
     # Determine the number of data drifts
-    if len(shape := np.shape(drift_data[list(drift_data.keys())[0]])) > 1:
-        num_drifts = shape[0]
-    else:
+    drift_lengths = set()
+    for value in drift_data.values():
+        if np.ndim(value) > 1:
+            drift_lengths.add(len(value))
+        else:
+            drift_lengths.add(1)
+
+    if len(drift_lengths) == 0:
         num_drifts = 1
-    tmp_num_drifts = num_drifts
+    elif len(drift_lengths) == 1:
+        num_drifts = drift_lengths.pop()
+    else:
+        raise ValueError("All drift_data dict key:values must have the same length.")
 
     # Checking n is divisible by number of drifts
     if n % num_drifts != 0:
@@ -228,36 +237,15 @@ def multivariate_drift_data(rng: np.random.Generator,
                     raise ValueError("Covariance matrix eigenvalues must be positive")
                 elif np.any(drift_data["cov"][:,0,1] != drift_data["cov"][:,1,0]):
                     raise ValueError("Covariance matrix must be symmetric")
-
             data_dict[key] = drift_data[key]
-            if len((shape := np.shape(data_dict[key]))) > 1:
-                num_drifts = shape[0]
-            else:
-                num_drifts = 1
 
         except KeyError:
             data_dict[key] = [data_dict[key] for _ in range(num_drifts)]
-
-        # Check whether number of drifts is consistent
-        if tmp_num_drifts != num_drifts:
-            raise ValueError("All drift_data dict key:values must have "
-                            "the same length of np.shape or be a single "
-                            f"value.\nFound num_drifts = {tmp_num_drifts}\n{key} "
-                            f"num_drifts = {num_drifts}."
-                            )
-        tmp_num_drifts = num_drifts
 
     # Check whether all of the keys in drift_data are valid
     for key in drift_data.keys():
         if key not in data_dict.keys():
             raise KeyError(f"Key \"{key}\" in drift_data is not valid.")
-
-    if tmp_num_drifts != num_drifts:
-        raise ValueError("All drift_data dict key:values must have the "
-                            "same length of np.shape or be a single value."
-                            f" Found num_drifts={tmp_num_drifts} and {key} "
-                            f"num_drifts={num_drifts}."
-                            )
 
     for loc_xy, cov in zip(data_dict["loc"], data_dict["cov"]):
         data = np.vstack((data, rng.multivariate_normal(loc_xy,
@@ -308,11 +296,6 @@ def create_dataset(rng: np.random.Generator,
         case "normal" | None:
             data = rng.standard_normal(size=(n, 2))
 
-        case _:
-            logger.warning("Distribution \"%s\" not allowed.\n"
-                "Generating standard normal data instead.", distribution)
-            data = rng.standard_normal(size=(n, 2))
-
     return data
 
 
@@ -329,11 +312,10 @@ def add_to_gitignore(name: str) -> None:
 
     with open(".gitignore", "a", encoding="utf-8") as f:
         f.write("\n"+name)
-    return
 
 
 def create_sample(n: int,
-                  random: bool,
+                  seed: int,
                   name: str,
                   header: str,
                   dont_ignore: bool,
@@ -344,7 +326,7 @@ def create_sample(n: int,
     Create a sample dataset with n data points and save to a file.
 
     int n: Number of data points to generate
-    int random: Bool of whether the dataset is random
+    int seed: Random seed for the random generator
     str name: Output file name
     str header: Header for the dataset file
     """
@@ -357,10 +339,7 @@ def create_sample(n: int,
     logger.debug("\nChecking file name done")
 
     # Set random seed
-    if random:
-        rng = np.random.default_rng()
-    else:
-        rng = np.random.default_rng(0)
+    rng = np.random.default_rng(seed)
 
     # Generate data from distribution
     logger.debug("Generating dataset...")
@@ -414,11 +393,11 @@ def print_info(args: argparse.Namespace) -> None:
               "\n\n----------------------\n",
               )
 
-    logger.info("\nINPUTS:\n\nn: %s\nrandom: %s\nname: %s"
+    logger.info("\nINPUTS:\n\nn: %s\nseed: %s\nname: %s"
                 "\nheader: %s\ndistribution: "
                 "%s"
                 "\ndrift data:{",
-                args.n, args.random, args.name, args.header,
+                args.n, (args.seed if args.seed else "random"), args.name, args.header,
                 args.distribution if args.distribution else "normal")
 
     if args.drift_data:
@@ -434,7 +413,7 @@ if __name__ == "__main__":
     set_logger(parsed_args)
     print_info(parsed_args)
     create_sample(parsed_args.n,
-                  parsed_args.random,
+                  parsed_args.seed,
                   parsed_args.name,
                   parsed_args.header,
                   parsed_args.dont_ignore,
