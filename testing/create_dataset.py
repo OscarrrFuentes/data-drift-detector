@@ -24,13 +24,16 @@ def load_json(json_file: str) -> dict:
     str json_file: Path to the JSON file or JSON string
     return: Dictionary containing the JSON data
     """
+    data = {}
     try:
         with open(json_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
+            for key, value in json.load(f).items():
+                data[key] = np.array(value)
         return data
     except FileNotFoundError:
         try:
-            data = json.loads(json_file)
+            for key, value in json.loads(json_file).items():
+                data[key] = np.array(value)
             return data
         except Exception as e:
             raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "\
@@ -88,8 +91,9 @@ def parse_args() -> argparse.Namespace:
         "--drift_data",
         type=load_json,
         default=None,
-        help=("JSON-encoded dictionary containing instructions to drift the mock dataset\n"\
-              "Pass --drift_data_dict_keys to see full description of allowed values"
+        help=("JSON filepath or string dictionary containing instructions to drift the"\
+                "mock dataset. Pass --drift_data_dict_keys to see full description of "\
+                "allowed values"
         ),
     )
     parser.add_argument(
@@ -160,7 +164,6 @@ def multivariate_drift_data(rng: np.random.Generator,
     dict | None data_dict: Original dictionary of parameters of mock dataset
     return: Generated dataset
     """
-                            
 
     # Determine the number of data drifts
     if len(shape := np.shape(drift_data[list(drift_data.keys())[0]])) > 1:
@@ -169,12 +172,25 @@ def multivariate_drift_data(rng: np.random.Generator,
         num_drifts = 1
     tmp = num_drifts
 
+    # Checking n is divisible by number of drifts
+    if n % num_drifts != 0:
+        print(f"\n\nDATA DRIFT NUMBER WARNING:\n{n} is not divisible by {num_drifts}")
+        n += num_drifts - (n % num_drifts)
+        print(f"Rounding n up to {n}")
+
     # Build data_dict with drift_data values
     data = np.empty(shape=(0,2))
     for key in data_dict.keys():
         # Check whether all of the keys in data_dict are in drift_data
         # otherwise fill with original value repeated num_drifts times
         try:
+            # Check for valid covariance matrix
+            if (key == "cov"):
+                if np.any(np.linalg.eigvalsh(drift_data["cov"]) < 0):
+                    raise ValueError("Covariance matrix eigenvalues must be positive")
+                elif np.any(drift_data["cov"][:,0,1] != drift_data["cov"][:,1,0]):
+                    raise ValueError("Covariance matrix must be symmetric")
+                
             data_dict[key] = drift_data[key]
             if len((shape := np.shape(data_dict[key]))) > 1:
                 num_drifts = shape[0]
@@ -355,8 +371,10 @@ def print_info(args: argparse.Namespace) -> None:
           "\nname:", args.name,
           "\nheader:", args.header,
           "\ndistribution:", (args.distribution if args.distribution else "normal"),
-          "\ndrift data:", args.drift_data,
-          "\n\n----------------------\n",
+          "\ndrift data:{",)
+    print(*args.drift_data.items(), sep="\n\n",)
+    print(
+          "}\n\n----------------------\n",
           )
 
 
