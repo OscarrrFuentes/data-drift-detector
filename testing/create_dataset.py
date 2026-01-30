@@ -48,7 +48,7 @@ def load_json(json_file: str) -> dict:
             logger.debug("Done loading JSON")
             return data
         except Exception as e:
-            raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "\
+            raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "
                                     "input is not valid JSON string."
                                     ) from e
 
@@ -103,8 +103,8 @@ def parse_args() -> argparse.Namespace:
         "--drift_data",
         type=load_json,
         default=None,
-        help=("JSON filepath or string dictionary containing instructions to drift the"\
-                "mock dataset. Pass --drift_data_dict_keys to see full description of "\
+        help=("JSON filepath or string dictionary containing instructions to drift the"
+                "mock dataset. Pass --drift_data_dict_keys to see full description of "
                 "allowed values"
         ),
     )
@@ -160,8 +160,8 @@ def check_extension(name: str, edit_flag: bool = False) -> tuple[str, bool]:
 
         # There are multiple extensions
         elif len(name.split(".")) > 2:
-            logger.warning("The file should be a .txt file. Merging and changing extension to "\
-                  ".txt")
+            logger.warning("The file should be a .txt file. Merging and changing "
+                           "extension to .txt")
             name = ".".join(name.split(".")) + ".txt"
     return (name, edit_flag)
 
@@ -175,8 +175,8 @@ def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     """
     if (len(name)<=6) or (name[0:7] != "testing"):
         edit_flag = True
-        logger.warning("The dataset must be created in the testing/ folder,"\
-              " changing folder to testing/")
+        logger.warning("The dataset must be created in the testing/ folder,"
+                       " changing folder to testing/")
         if "/" in name:
             name = "testing/" + name.split("/")[-1]
         else:
@@ -204,7 +204,7 @@ def multivariate_drift_data(rng: np.random.Generator,
         num_drifts = shape[0]
     else:
         num_drifts = 1
-    tmp = num_drifts
+    tmp_num_drifts = num_drifts
 
     # Checking n is divisible by number of drifts
     if n % num_drifts != 0:
@@ -217,7 +217,8 @@ def multivariate_drift_data(rng: np.random.Generator,
 
     # Build data_dict with drift_data values
     data = np.empty(shape=(0,2))
-    for key in data_dict.keys():
+    tmp_data_dict = data_dict.copy()
+    for key in tmp_data_dict.keys():
         # Check whether all of the keys in data_dict are in drift_data
         # otherwise fill with original value repeated num_drifts times
         try:
@@ -238,28 +239,31 @@ def multivariate_drift_data(rng: np.random.Generator,
             data_dict[key] = [data_dict[key] for _ in range(num_drifts)]
 
         # Check whether number of drifts is consistent
-        if tmp != num_drifts:
-            raise ValueError("All drift_data dict key:values must have "\
-                            "the same length of np.shape or be a single "\
-                            f"value.\nFound num_drifts = {tmp}\n{key} "\
+        if tmp_num_drifts != num_drifts:
+            raise ValueError("All drift_data dict key:values must have "
+                            "the same length of np.shape or be a single "
+                            f"value.\nFound num_drifts = {tmp_num_drifts}\n{key} "
                             f"num_drifts = {num_drifts}."
                             )
-        tmp = num_drifts
+        tmp_num_drifts = num_drifts
 
     # Check whether all of the keys in drift_data are valid
     for key in drift_data.keys():
         if key not in data_dict.keys():
             raise KeyError(f"Key \"{key}\" in drift_data is not valid.")
 
-    if tmp != num_drifts:
-        raise ValueError("All drift_data dict key:values must have the "\
-                            "same length of np.shape or be a single value."\
-                            f" Found num_drifts={tmp} and {key} "\
+    if tmp_num_drifts != num_drifts:
+        raise ValueError("All drift_data dict key:values must have the "
+                            "same length of np.shape or be a single value."
+                            f" Found num_drifts={tmp_num_drifts} and {key} "
                             f"num_drifts={num_drifts}."
                             )
 
     for loc_xy, cov in zip(data_dict["loc"], data_dict["cov"]):
-        data = np.vstack((data, rng.multivariate_normal(loc_xy, cov, size=int(n/num_drifts))))
+        data = np.vstack((data, rng.multivariate_normal(loc_xy,
+                                                        cov,
+                                                        size=int(n/num_drifts)
+                                                        )))
 
     return data
 
@@ -293,7 +297,10 @@ def create_dataset(rng: np.random.Generator,
             if drift_data:
                 data = multivariate_drift_data(rng, n, drift_data, data_dict)
             else:
-                data = rng.multivariate_normal(data_dict["loc"], data_dict["cov"], size=n)
+                data = rng.multivariate_normal(data_dict["loc"],
+                                               data_dict["cov"],
+                                               size=n
+                                               )
 
         case "poisson":
             data = rng.poisson(lam=10.0, size=(n, 2))
@@ -385,8 +392,8 @@ def print_info(args: argparse.Namespace) -> None:
 
     if args.drift_data_dict_keys:
         print("\n", textwrap.fill("ALLOWED drift_data DICT KEY:VALUE PAIRS"), "\n\n",
-              textwrap.fill("\"loc\": tuple[float, float] | list[tuple[float, float]] - "
-                            "(x, y) locations for the drift to happen.",
+              textwrap.fill("\"loc\": tuple[float, float] | list[tuple[float, float]]"
+                            " - (x, y) locations for the drift to happen.",
                             width=80,
                             subsequent_indent="   ",), "\n",
               textwrap.fill("\"stdev\": "
@@ -407,19 +414,19 @@ def print_info(args: argparse.Namespace) -> None:
               "\n\n----------------------\n",
               )
 
-    logger.info("\nINPUTS:\n\nn: %s\nrandom: %s\nname: %s"\
-                "\nheader: %s\ndistribution: "\
-                "%s"\
+    logger.info("\nINPUTS:\n\nn: %s\nrandom: %s\nname: %s"
+                "\nheader: %s\ndistribution: "
+                "%s"
                 "\ndrift data:{",
                 args.n, args.random, args.name, args.header,
                 args.distribution if args.distribution else "normal")
 
-    for key, value in args.drift_data.items():
-        logger.info("%s: %s\n", key, value)
-
-    logger.info(
-          "}\n----------------------\n",
-          )
+    if args.drift_data:
+        for key, value in args.drift_data.items():
+            logger.info("%s: %s\n", key, value)
+        logger.info(
+            "}\n----------------------\n",
+            )
 
 
 if __name__ == "__main__":
