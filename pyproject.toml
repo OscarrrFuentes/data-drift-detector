@@ -1,0 +1,17 @@
+[project]
+name = "data-drift-detector"
+version = "0.1.0"
+description = "Synthetic data drift generation and visualization"
+authors = [{ name = "Your Name" }]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "matplotlib"
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

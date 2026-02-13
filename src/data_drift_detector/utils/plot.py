@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
         default="plots/loss_curve.png",
         help="Filename for the loss curve plot.",
     )
+    parser.add_argument
 
     return parser.parse_args()
 
