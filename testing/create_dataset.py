@@ -404,14 +404,18 @@ def print_info(args: argparse.Namespace, logger: logging.Logger) -> None:
 
 if __name__ == "__main__":
     parsed_args = parse_args()
+    if parsed_args.drift_data is not None:
+        for k, v in parsed_args.drift_data.items():
+            parsed_args.drift_data[k] = np.array(v)
     set_logger(parsed_args, logger)
     print_info(parsed_args, logger)
-    create_sample(parsed_args.n,
-                  parsed_args.seed,
-                  parsed_args.name,
-                  parsed_args.header,
-                  parsed_args.dont_ignore,
-                  logger,
-                  parsed_args.distribution,
-                  parsed_args.drift_data,
-                  )
+    create_sample(
+        parsed_args.n,
+        parsed_args.seed,
+        parsed_args.name,
+        parsed_args.header,
+        parsed_args.dont_ignore,
+        logger,
+        parsed_args.distribution,
+        parsed_args.drift_data,
+    )

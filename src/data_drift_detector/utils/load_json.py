@@ -18,7 +18,7 @@ def load_json(json_file: str) -> dict:
     try:
         with open(json_file, "r", encoding="utf-8") as f:
             for key, value in json.load(f).items():
-                data[key] = np.array(value)
+                data[key] = value
         return data
     except FileNotFoundError:
         try:
