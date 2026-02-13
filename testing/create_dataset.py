@@ -6,9 +6,9 @@ Create a sample dataset for testing.
 import sys
 import argparse
 import textwrap
-import json
-import logging as lg
+import logging
 import numpy as np
+from data_drift_detector.utils.load_json import load_json
 
 
 ALLOWED_DISTRIBUTIONS = ["normal",
@@ -19,37 +19,10 @@ ALLOWED_DISTRIBUTIONS = ["normal",
                          ]
 
 
-logger = lg.getLogger(__name__)
-logger.setLevel(lg.WARNING)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.WARNING)
 if not logger.hasHandlers():
-    logger.addHandler(lg.StreamHandler(sys.stdout))
-
-
-def load_json(json_file: str) -> dict:
-    """
-    Load a JSON file or a JSON string and return its contents as a dictionary.
-
-    str json_file: Path to the JSON file or JSON string
-    return: Dictionary containing the JSON data
-    """
-    logger.debug("Loading JSON...")
-    data = {}
-    try:
-        with open(json_file, "r", encoding="utf-8") as f:
-            for key, value in json.load(f).items():
-                data[key] = np.array(value)
-        logger.debug("Done loading JSON")
-        return data
-    except FileNotFoundError:
-        try:
-            for key, value in json.loads(json_file).items():
-                data[key] = np.array(value)
-            logger.debug("Done loading JSON")
-            return data
-        except Exception as e:
-            raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "
-                                    "input is not valid JSON string."
-                                    ) from e
+    logger.addHandler(logging.StreamHandler(sys.stdout))
 
 
 def parse_args() -> argparse.Namespace:
@@ -127,25 +100,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def set_logger(args: argparse.Namespace) -> None:
+def set_logger(args: argparse.Namespace, logger: logging.Logger) -> None:
     """
     Set the verbosity of the logger
     
     argparse.Namespace args: Arguments passed into the program
+    logging.Logger logger: Logger to set verbosity for
     """
     if args.vv:
-        logger.setLevel(lg.DEBUG)
+        logger.setLevel(logging.DEBUG)
     elif args.verbose:
-        logger.setLevel(lg.INFO)
+        logger.setLevel(logging.INFO)
 
 
-def check_extension(name: str, edit_flag: bool = False) -> tuple[str, bool]:
+def check_extension(name: str, logger: logging.Logger) -> tuple[str, bool]:
     """
     Check if the file name has a .txt extension.
 
     str name: File name to check
+    logging.Logger logger: Logger to use for logging messages
     return: Corrected file name with .txt extension
     """
+    edit_flag = False
+
     if name.split(".")[-1] != "txt":
         edit_flag = True
 
@@ -167,11 +144,17 @@ def check_extension(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     return (name, edit_flag)
 
 
-def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
+def check_folder(
+        name: str,
+        logger: logging.Logger,
+        edit_flag: bool = False,
+    ) -> tuple[str, bool]:
     """
     Ensure the dataset is created in the testing/ folder.
 
     str name: File name to check
+    logging.Logger logger: Logger to use for logging messages
+    bool edit_flag: Flag to indicate whether the file name was edited
     return: Corrected file name in testing/ folder
     """
     if (len(name)<=6) or (name[0:7] != "testing"):
@@ -185,11 +168,13 @@ def check_folder(name: str, edit_flag: bool = False) -> tuple[str, bool]:
     return (name, edit_flag)
 
 
-def multivariate_drift_data(rng: np.random.Generator,
-                            n: int,
-                            drift_data: dict,
-                            data_dict: dict,
-                            ) -> np.ndarray:
+def multivariate_drift_data(
+        rng: np.random.Generator,
+        n: int,
+        drift_data: dict,
+        data_dict: dict,
+        logger: logging.Logger,
+    ) -> np.ndarray:
     """
     Create a drifted dataset for the multivariate normal distribution.
 
@@ -197,6 +182,7 @@ def multivariate_drift_data(rng: np.random.Generator,
     int n: Number of data points to generate
     dict | None drift_data: Parameters to drift the data by
     dict | None data_dict: Original dictionary of parameters of mock dataset
+    logging.Logger logger: Logger to use for logging messages
     return: Generated dataset
     """
 
@@ -256,11 +242,13 @@ def multivariate_drift_data(rng: np.random.Generator,
     return data
 
 
-def create_dataset(rng: np.random.Generator,
-                   n: int,
-                   distribution: str | None,
-                   drift_data: dict | None,
-                   ) -> np.ndarray:
+def create_dataset(
+        rng: np.random.Generator,
+        n: int,
+        distribution: str | None,
+        drift_data: dict | None,
+        logger: logging.Logger,
+    ) -> np.ndarray:
     """
     Create a 2D dataset with n data points sampled from distribution.
 
@@ -268,6 +256,7 @@ def create_dataset(rng: np.random.Generator,
     int n: Number of data points to generate
     str | None distribution: Distribution to sample from
     dict | None drift_data: Parameters to drift the data by
+    logging.Logger logger: Logger to use for logging messages
     return: Generated dataset
     """
 
@@ -283,7 +272,7 @@ def create_dataset(rng: np.random.Generator,
 
         case "multivariate_normal":
             if drift_data:
-                data = multivariate_drift_data(rng, n, drift_data, data_dict)
+                data = multivariate_drift_data(rng, n, drift_data, data_dict, logger)
             else:
                 data = rng.multivariate_normal(data_dict["loc"],
                                                data_dict["cov"],
@@ -314,14 +303,16 @@ def add_to_gitignore(name: str) -> None:
         f.write("\n"+name)
 
 
-def create_sample(n: int,
-                  seed: int,
-                  name: str,
-                  header: str,
-                  dont_ignore: bool,
-                  distribution: str | None = None,
-                  drift_data: dict | None = None,
-                  ) -> int:
+def create_sample(
+        n: int,
+        seed: int,
+        name: str,
+        header: str,
+        dont_ignore: bool,
+        logger: logging.Logger,
+        distribution: str | None = None,
+        drift_data: dict | None = None,
+    ) -> None:
     """
     Create a sample dataset with n data points and save to a file.
 
@@ -329,11 +320,15 @@ def create_sample(n: int,
     int seed: Random seed for the random generator
     str name: Output file name
     str header: Header for the dataset file
+    bool dont_ignore: If True, do not include the dataset file in .gitignore
+    logging.Logger logger: Logger to use for logging messages
+    str | None distribution: Distribution to sample from (default: standard normal)
+    dict | None drift_data: Parameters to drift the data by (default: None)
     """
     # Check file name
     logger.debug("Checking file name...")
-    (name, edit_flag) = check_extension(name)
-    (name, edit_flag) = check_folder(name, edit_flag=edit_flag)
+    (name, edit_flag) = check_extension(name, logger)
+    (name, edit_flag) = check_folder(name, logger, edit_flag=edit_flag)
     if edit_flag:
         logger.warning("Saving file to %s", name)
     logger.debug("\nChecking file name done")
@@ -343,36 +338,35 @@ def create_sample(n: int,
 
     # Generate data from distribution
     logger.debug("Generating dataset...")
-    data = create_dataset(rng, n, distribution, drift_data)
+    data = create_dataset(rng, n, distribution, drift_data, logger)
     logger.debug("\nGenerating dataset done")
 
     np.savetxt(name, data, delimiter=",", header=header)
 
-    if dont_ignore:
-        return 0
-
-    # Add the created dataset to .gitignore if not already present
-    add_to_gitignore(name)
-    logger.debug("\n%s confirmed in .gitignore", name)
-    return 0
+    if not dont_ignore:
+        # Add the created dataset to .gitignore if not already present
+        add_to_gitignore(name)
+    logger.debug("\n%s saved", name)
 
 
-def print_info(args: argparse.Namespace) -> None:
+def print_info(args: argparse.Namespace, logger: logging.Logger) -> None:
     """
     Print dataset information
     
     argparse.Namespace args: Arguments passed to this program
+    logging.Logger logger: Logger to use for printing info
     """
     if args.print_distributions:
-        print("\nALLOWED DISTRIBUTIONS:\n")
+        logger.info("\nALLOWED DISTRIBUTIONS:\n")
         for d in ALLOWED_DISTRIBUTIONS:
-            print(d)
-        print("\n-----------------------\n")
+            logger.info(d)
+        logger.info("\n-----------------------\n")
 
     if args.drift_data_dict_keys:
-        print("\n", textwrap.fill("ALLOWED drift_data DICT KEY:VALUE PAIRS"), "\n\n",
-              textwrap.fill("\"loc\": tuple[float, float] | list[tuple[float, float]]"
-                            " - (x, y) locations for the drift to happen.",
+        logger.info("\n%s", textwrap.fill("ALLOWED drift_data DICT KEY:VALUE PAIRS"))
+        logger.info("\n%s", textwrap.fill("\"loc\": tuple[float, float] | "
+                            "list[tuple[float, float]] - (x, y) locations for the "
+                            "drift to happen.",
                             width=80,
                             subsequent_indent="   ",), "\n",
               textwrap.fill("\"stdev\": "
@@ -410,13 +404,14 @@ def print_info(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parsed_args = parse_args()
-    set_logger(parsed_args)
-    print_info(parsed_args)
+    set_logger(parsed_args, logger)
+    print_info(parsed_args, logger)
     create_sample(parsed_args.n,
                   parsed_args.seed,
                   parsed_args.name,
                   parsed_args.header,
                   parsed_args.dont_ignore,
+                  logger,
                   parsed_args.distribution,
                   parsed_args.drift_data,
                   )
