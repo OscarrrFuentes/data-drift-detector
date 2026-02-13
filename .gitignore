@@ -1,2 +1,8 @@
-testing/mock_dataset.txt
+testing/*
+!testing/create_dataset.py
 dev_tests.ipynb
+plots/*
+dev_tests.py
+*.egg-info/
+__pycache__/
+*.pyc
