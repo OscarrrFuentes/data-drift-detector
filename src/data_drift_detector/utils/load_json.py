@@ -23,7 +23,7 @@ def load_json(json_file: str) -> dict:
     except FileNotFoundError:
         try:
             for key, value in json.loads(json_file).items():
-                data[key] = np.array(value)
+                data[key] = value
             return data
         except Exception as e:
             raise FileNotFoundError(f"JSON file \"{json_file}\" not found and "
