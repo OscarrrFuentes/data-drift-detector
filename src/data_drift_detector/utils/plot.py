@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env python3
 """
 This script provides functions to plot 2D and 3D distributions of data,
 as well as training and validation loss curves.
@@ -221,14 +221,14 @@ def plot_loss_curve(
     ax.plot(
         loss_values[:,0],
         loss_values[:,1],
-        format="-",
+        "-",
         label="Training Loss",
         **train_kwargs
     )
     ax.plot(
         loss_values[:,0],
         loss_values[:,2], 
-        format="-",
+        "-",
         label="Validation Loss",
         **val_kwargs
     )
