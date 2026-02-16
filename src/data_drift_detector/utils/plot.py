@@ -47,33 +47,28 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--data_plot_name",
         type=str,
-        default="plots/distribution_plot",
         help="Filename for the distribution plot.",
     )
     parser.add_argument(
         "--loss_plot_name",
         type=str,
-        default="plots/loss_curve.png",
         help="Filename for the loss curve plot.",
     )
     parser.add_argument(
         "--distribution_kwargs",
         type=load_json,
-        default={},
         help=("Path to a JSON file or a JSON string containing additional keyword "
         "arguments for plotting the input data distribution."),
     )
     parser.add_argument(
         "--train_kwargs",
         type=load_json,
-        default={},
         help=("Path to a JSON file or a JSON string containing additional keyword "
         "arguments for plotting the training loss curve."),
     )
     parser.add_argument(
         "--val_kwargs",
         type=load_json,
-        default={},
         help=("Path to a JSON file or a JSON string containing additional keyword "
         "arguments for plotting the validation loss curve."),
     )
@@ -83,10 +78,10 @@ def parse_args() -> argparse.Namespace:
 
 def plot_2d_scatter(
         data: np.ndarray,
-        title: str,
-        save: bool,
-        filename: str,
-        kwargs: dict,
+        title: str="2D Scatter Plot",
+        save: bool=False,
+        filename: str="plots/distribution_plot",
+        kwargs: dict={},
     ) -> None:
     """
     Plot the 2D scatterplot distribution of the given data.
@@ -113,10 +108,10 @@ def plot_2d_scatter(
 
 def plot_2d_heatmap(
         data: np.ndarray,
-        title: str,
-        save: bool,
-        filename: str,
-        kwargs: dict,
+        title: str="2D Heatmap",
+        save: bool=False,
+        filename: str="plots/distribution_plot",
+        kwargs: dict={},
     ) -> None:
     """
     Plot a 2D heatmap of the given data.
@@ -153,10 +148,10 @@ def plot_2d_heatmap(
 
 def plot_3d_distribution(
         data: np.ndarray,
-        title: str,
-        save: bool,
-        filename: str,
-        kwargs: dict,
+        title: str="3d Distribution",
+        save: bool=False,
+        filename: str="plots/distribution_plot",
+        kwargs: dict={},
     ) -> None:
     """
     Plots a 3D histogram of the given data.
@@ -201,11 +196,11 @@ def plot_3d_distribution(
 
 def plot_loss_curve(
         loss_values: np.ndarray,
-        title: str,
-        save: bool,
-        filename: str,
-        train_kwargs: dict,
-        val_kwargs: dict,
+        title: str="Training/Validation Loss Curves",
+        save: bool=False,
+        filename: str="plots/loss_curve.png",
+        train_kwargs: dict={},
+        val_kwargs: dict={},
     ) -> None:
     """
     Plots the training and validation loss curves.
