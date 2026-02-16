@@ -1,8 +1,23 @@
-testing/*
-!testing/create_dataset.py
-dev_tests.ipynb
-plots/*
-dev_tests.py
-*.egg-info/
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Development
+.venv/
+venv/
+*.ipynb_checkpoints
+
+# IDE
+.vscode/
+.idea/
+
+# Data files (keep this if you don't want large datasets in git)
+testing/*.txt
+testing/*.json
+!testing/create_dataset.py
+plots/*
