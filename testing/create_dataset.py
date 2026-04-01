@@ -211,7 +211,6 @@ def multivariate_drift_data(
         logger.warning("Rounding n up to %s", n)
 
     # Build data_dict with drift_data values
-    data = np.empty(shape=(0,2))
     tmp_data_dict = data_dict.copy()
     for key in tmp_data_dict.keys():
         # Check whether all of the keys in data_dict are in drift_data
@@ -233,6 +232,7 @@ def multivariate_drift_data(
         if key not in data_dict.keys():
             raise KeyError(f"Key \"{key}\" in drift_data is not valid.")
 
+    data = np.empty(shape=(0,drift_data["loc"][0].shape[0]))
     for loc_xy, cov in zip(data_dict["loc"], data_dict["cov"]):
         data = np.vstack((data, rng.multivariate_normal(loc_xy,
                                                         cov,
@@ -309,9 +309,9 @@ def create_sample(
         name: str,
         header: str,
         dont_ignore: bool,
+        distribution: str | None,
+        drift_data: dict | None,
         logger: logging.Logger,
-        distribution: str | None = None,
-        drift_data: dict | None = None,
     ) -> None:
     """
     Create a sample dataset with n data points and save to a file.
@@ -324,6 +324,7 @@ def create_sample(
     logging.Logger logger: Logger to use for logging messages
     str | None distribution: Distribution to sample from (default: standard normal)
     dict | None drift_data: Parameters to drift the data by (default: None)
+    logging.Logger logger: Logger to use for logging messages
     """
     # Check file name
     logger.debug("Checking file name...")
@@ -357,10 +358,11 @@ def print_info(args: argparse.Namespace, logger: logging.Logger) -> None:
     logging.Logger logger: Logger to use for printing info
     """
     if args.print_distributions:
-        logger.info("\nALLOWED DISTRIBUTIONS:\n")
+        print("\nALLOWED DISTRIBUTIONS:\n")
         for d in ALLOWED_DISTRIBUTIONS:
-            logger.info(d)
-        logger.info("\n-----------------------\n")
+            print(d)
+        print("\n-----------------------\n")
+        sys.exit(0)
 
     if args.drift_data_dict_keys:
         logger.info("\n%s", textwrap.fill("ALLOWED drift_data DICT KEY:VALUE PAIRS"))
@@ -415,7 +417,7 @@ if __name__ == "__main__":
         parsed_args.name,
         parsed_args.header,
         parsed_args.dont_ignore,
-        logger,
         parsed_args.distribution,
         parsed_args.drift_data,
+        logger,
     )
